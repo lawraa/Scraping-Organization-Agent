@@ -23,38 +23,31 @@ def delete_articles(ids: Iterable[str]) -> int:
     with get_conn() as conn:
         cur = conn.execute(f"DELETE FROM articles WHERE article_id IN ({placeholders})", ids)
         return cur.rowcount or 0
-
-def _companies_to_str(cell):
+    
+def _list_json_to_str(cell):
     try:
         arr = json.loads(cell) if cell else []
     except Exception:
-        # if it's already a Python object (rare) or invalid JSON, stringify
         return str(cell)
-
     names = []
     for item in arr:
         if isinstance(item, str):
             s = item.strip()
         elif isinstance(item, dict):
-            # prefer common name keys; fallback to str(dict)
-            for k in ("name", "company", "org", "value", "text", "title"):
+            for k in ("name", "keyword", "company", "org", "value", "text", "title"):
                 v = item.get(k)
                 if isinstance(v, str) and v.strip():
-                    s = v.strip()
-                    break
+                    s = v.strip(); break
             else:
                 s = str(item).strip()
         else:
             s = str(item).strip()
         if s:
             names.append(s)
-
-    # de-dup while preserving order
     seen, out = set(), []
     for n in names:
         if n not in seen:
-            seen.add(n)
-            out.append(n)
+            seen.add(n); out.append(n)
     return ", ".join(out)
 
 
@@ -87,6 +80,9 @@ def init_db():
             );
             """
         )
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(articles)").fetchall()}  # r[1] is name
+        if "keywords" not in cols:
+            conn.execute("ALTER TABLE articles ADD COLUMN keywords TEXT")  # JSON array of strings
 
 
 def have_article(article_id: str) -> bool:
@@ -98,14 +94,15 @@ def have_article(article_id: str) -> bool:
 def upsert_article(row: dict):
     # Ensure JSON serialization for list fields
     companies_json = json.dumps(row.get("companies_ranked") or [], ensure_ascii=False)
+    keywords_json  = json.dumps(row.get("keywords") or [], ensure_ascii=False)
     with get_conn() as conn:
         conn.execute(
             """
             INSERT INTO articles (
               article_id, url, headline, publish_date, body,
               companies_ranked, primary_company, company_one_liner,
-              summary_zh_tw, summary_en
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              summary_zh_tw, summary_en, keywords
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(article_id) DO UPDATE SET
               url=excluded.url,
               headline=excluded.headline,
@@ -115,13 +112,15 @@ def upsert_article(row: dict):
               primary_company=excluded.primary_company,
               company_one_liner=excluded.company_one_liner,
               summary_zh_tw=excluded.summary_zh_tw,
-              summary_en=excluded.summary_en
+              summary_en=excluded.summary_en,
+              keywords=excluded.keywords
             ;
             """,
             (
                 row.get("article_id"), row.get("url"), row.get("headline"), row.get("publish_date"), row.get("body"),
                 companies_json, row.get("primary_company"), row.get("company_one_liner"),
                 row.get("summary_zh_tw"), row.get("summary_en"),
+                keywords_json
             ),
         )
 
@@ -130,12 +129,15 @@ def fetch_all_df() -> pd.DataFrame:
     with get_conn() as conn:
         df = pd.read_sql_query(
             "SELECT article_id, url, headline, publish_date, "
-            "companies_ranked, primary_company, company_one_liner, summary_zh_tw, summary_en, fetched_at "
+            "companies_ranked, primary_company, company_one_liner, summary_zh_tw, summary_en, keywords, fetched_at "
             "FROM articles ORDER BY publish_date DESC NULLS LAST, fetched_at DESC",
             conn,
         )
     # Parse companies JSON
-    if not df.empty and "companies_ranked" in df.columns:
-        df["companies_ranked"] = df["companies_ranked"].apply(_companies_to_str)
+    if not df.empty:
+        if "companies_ranked" in df.columns:
+            df["companies_ranked"] = df["companies_ranked"].apply(_list_json_to_str)
+        if "keywords" in df.columns:  # NEW
+            df["keywords"] = df["keywords"].apply(_list_json_to_str)
     return df
 

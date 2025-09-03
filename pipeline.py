@@ -11,7 +11,7 @@ from tqdm import tqdm
 from urllib.parse import urlparse, parse_qsl 
 
 CSV_COLS = [
-    "article_id", "url", "headline", "publish_date",
+    "article_id", "url", "headline", "publish_date", "keywords",
     "companies_ranked", "primary_company", "company_one_liner",
     "summary_zh_tw", "summary_en", "fetched_at",
 ]
@@ -29,10 +29,10 @@ def export_csv_atomic(csv_path: str) -> int:
     tmp = Path(csv_path).with_suffix(Path(csv_path).suffix + ".tmp")
     tmp.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(tmp, index=False, encoding="utf-8-sig")
-    tmp.replace(csv_path)  # atomic on most OSes
+    tmp.replace(csv_path) 
     return len(df)
 
-def _article_id_from_url(url: str) -> str | None:  # ⬅️ NEW
+def _article_id_from_url(url: str) -> str | None:  
     qs = dict(parse_qsl(urlparse(url).query, keep_blank_values=True))
     num = qs.get("num")
     return num if num and num.isdigit() else None
@@ -59,7 +59,7 @@ def run_pipeline(max_pages: int, all_pages: bool, do_enrich: bool, csv_path: str
         if have_article(aid):
             print(f"[{i:03d}] Seen, skip: {aid}")
             continue
-        print(f"[{i:03d}] Fetching & parsing: {url}")  # only now fetch HTML
+        print(f"[{i:03d}] Fetching & parsing: {url}")  
         art = parse_article_page(url)
         body = (art.get("body") or "").strip()
         if len(body) < 10:
@@ -95,7 +95,6 @@ def run_pipeline(max_pages: int, all_pages: bool, do_enrich: bool, csv_path: str
         new_count += 1
         print(f"[{i:03d}] Added: {aid} | {art.get('headline')}")
 
-        # Per-iteration CSV checkpoint (safe if process dies mid-run)
         try:
             n = export_csv_atomic(csv_path)
             print(f"[Export] Checkpoint CSV ({n} rows) → {csv_path}")
