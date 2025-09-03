@@ -39,3 +39,8 @@ OR
 #### Delete multiple articles using article_ids
 - `python manage.py delete --ids 80098,80123,80555`
 
+#### Delete from file
+- `python manage.py delete --from-file ids_to_redo.txt`
+
+#### Find files that are missing "keywords", "summary", etc.
+- `python audit_failed_enrichment.py data/articles.csv ids_to_redo.txt`

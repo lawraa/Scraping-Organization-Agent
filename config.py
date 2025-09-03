@@ -17,7 +17,7 @@ DEFAULT_CSV_PATH = DATA_DIR / "articles.csv"
 # Crawl
 BASE_INDEX_URL = "https://news.gbimonthly.com/tw/article/index.php"
 USER_AGENT = "Mozilla/5.0 (compatible; GBI-Pipeline/1.0)"
-REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "1.5"))
+REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "0"))
 PAGES_TO_SCAN = int(os.getenv("PAGES_TO_SCAN", "2"))
 
 # LLM

@@ -60,15 +60,13 @@ class GeminiEnricher:
         resp = self.client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config={"temperature": 0},
         )
         text = getattr(resp, "text", "") or ""
 
         if not text:
             resp = self.client.models.generate_content(
                 model=self.model,
-                contents=[{"role": "user", "parts": [prompt]}],
-                config={"temperature": 0},
+                contents=[{"role": "user", "parts": [prompt]}]
             )
             text = getattr(resp, "text", "") or ""
 
