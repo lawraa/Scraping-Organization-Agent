@@ -10,6 +10,10 @@ from pathlib import Path
 from tqdm import tqdm
 from urllib.parse import urlparse, parse_qsl 
 
+import sys
+sys.argv = ["pipeline.py", "--max-pages", "3", "--csv", "data/articles.csv"]
+# sys.argv = ["pipeline.py", "--all", "--csv", "data/articles.csv"]
+
 CSV_COLS = [
     "article_id", "url", "headline", "publish_date", "keywords",
     "companies_ranked", "primary_company", "company_one_liner",

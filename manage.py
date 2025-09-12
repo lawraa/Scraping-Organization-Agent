@@ -5,6 +5,9 @@ from pathlib import Path
 from config import DEFAULT_CSV_PATH
 from storage import delete_article_by_id, delete_articles, fetch_all_df
 
+import sys
+sys.argv = ["manage.py", "delete", "--ids", "80108"]
+
 CSV_COLS = [
     "article_id", "url", "headline", "publish_date",
     "companies_ranked", "primary_company", "company_one_liner",
