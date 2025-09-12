@@ -44,3 +44,60 @@ OR
 
 #### Find files that are missing "keywords", "summary", etc.
 - `python audit_failed_enrichment.py data/articles.csv ids_to_redo.txt`
+
+
+### Explanation of Code
+#### `config.py`
+This file is to set the folder's path, the data folder location, crawling settings(news url, page to scans, etc) and LLM parameters (GEMINI_API_KEY, GEMINI_MODEL, timeouts). This is imported by other python file to use. 
+
+TLDR: A file that stores global variables
+
+
+#### `storage.py`
+Handles the database(the things in the data folder that ends with .db) database:
+
+init_db, get_conn manage the DB connection.
+upsert_article, fetch_all_df, delete_article(s) will allow use to create, read, update, and delete each row we collect(each data we collected and organized).
+
+_list_json_to_str cleans JSON fields for CSV export.
+Used by pipeline.py to store results and by manage.py/audit_failed_enrichment.py when exporting or cleaning data.
+
+
+#### `crawler.py`
+Crawls index pages and extracts correct article URLs (crawl_links). Supplies URLs for parsing in pipeline.py.
+
+
+#### `parser.py`
+Gets individual article pages and extracts structured fields (headline, publish_date, body) using BeautifulSoup. Used by pipeline.py after the crawling step.
+
+
+#### `prompts.py`
+Defines the system prompt, JSON description, and user prompt template for the Gemini LLM. Imported by enrich.py to ensure consistent instructions to the model.
+
+#### `enrich.py`
+Provides GeminiEnricher, which calls the Gemini API (via google.genai; basically just like feeding in stuff to AI such as GPT to get a response) to generate summaries, keywords, company info, etc. Includes retry logic when it fail to call and normalization of model output. Used by pipeline.py when enrichment is enabled.
+
+#### `pipeline.py`
+Full Workflow:
+- initializes DB (storage.init_db)
+- crawls URLs (crawler.crawl_links)
+- parses articles and get headline, publish_date, body (parser.parse_article_page)
+- enriches them using the prompts in prompts.py and call GeminiEnricher API to get the response from Gemini
+- save into the DB and exports a CSV
+
+
+#### `manage.py`
+Administrative CLI for the article database. Let you delete articles by ID and re‑exporting the CSV snapshot (export_csv_atomic). Relies on storage.py and config.py. Useful for cleanup after auditing.
+
+#### `audit_failed_enrichment.py`
+Don't need to care about this. But basically it detect rows with missing information/enrichment (things that produce from AI: keywords, summary, ...) in the db/csv file.
+Then remove it. 
+
+#### `Module Connections Overview`
+config.py ➜ provides shared constants to all other python file.
+
+pipeline.py ➜ central pipeline calling crawler, parser, enrich, and storage.
+
+prompts.py ➜ define prompts and feed to enrich.py for LLM interaction.
+
+manage.py and audit_failed_enrichment.py ➜ post‑processing/maintenance utilities operating on the same DB/CSV produced by the pipeline.
